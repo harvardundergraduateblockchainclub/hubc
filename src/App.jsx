@@ -795,15 +795,15 @@ const HarvardBlockchainClub = () => {
               },
               { 
                 name: 'Sasha Minsky', role: 'Head of Growth', year: "'28",
-                photo: '/sasha copy.JPG'
+                photo: '/sasha copy.jpg'
               },
               { 
                 name: 'Tyler Dang', role: 'Operations Director', year: "'28",
-                photo: '/tyler copy.jpg'
+                photo: '/tyler copy.jpeg'
               },  
               { 
                 name: 'Will Brunner', role: 'Marketing and Communications Director', year: "'28",
-                photo: '/will copy.JPG'
+                photo: '/will copy.jpeg'
               },
             ].map((member, i) => (
               <div 
