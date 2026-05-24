@@ -782,7 +782,7 @@ const HarvardBlockchainClub = () => {
             {[
               { 
                 name: 'Antonia Kolb', role: 'President', year: "'28",
-                photo: '/antonia.jpg'
+                photo: '/antoniahubc.jpg'
               },
               { 
                 name: 'David Parkes', role: 'Faculty Advisor, John A. Paulson Dean of the Harvard John A. Paulson School of Engineering and Applied Sciences',
