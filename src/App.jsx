@@ -45,7 +45,7 @@ const HarvardBlockchainClub = () => {
   // HUBC Logo Component
   const HUBCLogo = ({ height = 55 }) => (
     <img 
-      src="/path/to/hubc-logo.png"
+      src="/hubc_black (1).png"
       alt="Harvard Undergraduate Blockchain Club"
       style={{ height: height, width: 'auto' }}
     />
@@ -783,24 +783,28 @@ const HarvardBlockchainClub = () => {
               { 
                 name: 'Antonia Kolb', role: 'President', year: "'28",
                 // Replace with actual image URL
-                photo: 'public/antonia.JPG'
+                photo: '/antonia.JPG'
               },
               { 
                 name: 'David Parkes', role: 'Faculty Advisor, John A. Paulson Dean of the Harvard John A. Paulson School of Engineering and Applied Sciences',
-                photo: 'public/david copy.jpeg'
+                photo: '/david copy.jpeg'
               },
               { 
                 name: 'Hudson Brown', role: 'Treasurer', year: "'28",
-                photo: 'public/hudson.JPG'
+                photo: '/on boat copy.jpg'
               },
               { 
                 name: 'Sasha Minsky', role: 'Head of Growth', year: "'28",
-                photo: 'public/sasha.JPG'
+                photo: '/sasha copy.JPG'
               },
               { 
                 name: 'Tyler Dang', role: 'Operations Director', year: "'28",
-                photo: 'public/tyler.JPG'
+                photo: '/tyler copy.jpg'
               },  
+              { 
+                name: 'Will Brunner', role: 'Marketing and Communications Director', year: "'28",
+                photo: '/will copy.JPG'
+              },
             ].map((member, i) => (
               <div 
                 key={i} 
