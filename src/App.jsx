@@ -1,994 +1,542 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
-const HarvardBlockchainClub = () => {
-  const [activePage, setActivePage] = useState('home');
-  const [scrollY, setScrollY] = useState(0);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [visibleSections, setVisibleSections] = useState({});
+const CRIMSON = '#A51C30';
+const INK = '#17140F';
+const PAPER = '#FAFAF8';
+const SERIF = "'Instrument Serif', Georgia, serif";
+const SANS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif";
+const MONO = "'IBM Plex Mono', ui-monospace, monospace";
+const EMAIL = 'mailto:harvardblockchainclub@gmail.com';
 
-  useEffect(() => {
-    setIsLoaded(true);
-    
-    const handleScroll = () => setScrollY(window.scrollY);
-    const handleMouseMove = (e) => {
-      setMousePos({ 
-        x: (e.clientX / window.innerWidth - 0.5) * 2,
-        y: (e.clientY / window.innerHeight - 0.5) * 2
-      });
-    };
-    
-    window.addEventListener('scroll', handleScroll);
-    window.addEventListener('mousemove', handleMouseMove);
-    
-    // Intersection Observer for scroll animations
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            setVisibleSections(prev => ({ ...prev, [entry.target.id]: true }));
-          }
-        });
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    );
-    
-    document.querySelectorAll('[data-animate]').forEach(el => observer.observe(el));
-    
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('mousemove', handleMouseMove);
-      observer.disconnect();
-    };
-  }, [activePage]);
+const CELL = 15;
+const GAP = 2;
+const COLS = 93;
 
-  // HUBC Logo Component
-  const HUBCLogo = ({ height = 55 }) => (
-    <img 
-      src="/hubc_black (1).png"
-      alt="Harvard Undergraduate Blockchain Club"
-      style={{ height: height, width: 'auto' }}
-    />
-  );
+const rgba = (hex, a) => {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+};
 
-  // Parallax Floating Blocks - React to mouse movement
-  const ParallaxBlocks = () => (
-    <>
-      {[
-        { left: '3%', top: '15%', size: 60, depth: 0.02, delay: 0 },
-        { left: '8%', top: '40%', size: 35, depth: 0.03, delay: 0.5 },
-        { left: '5%', top: '65%', size: 50, depth: 0.015, delay: 1 },
-        { left: '15%', top: '25%', size: 25, depth: 0.04, delay: 0.3 },
-        { left: '20%', top: '55%', size: 40, depth: 0.025, delay: 0.8 },
-        { left: '85%', top: '20%', size: 45, depth: 0.02, delay: 0.2 },
-        { left: '90%', top: '45%', size: 55, depth: 0.015, delay: 0.6 },
-        { left: '88%', top: '70%', size: 30, depth: 0.035, delay: 0.9 },
-        { left: '78%', top: '30%', size: 28, depth: 0.03, delay: 0.4 },
-        { left: '82%', top: '80%', size: 38, depth: 0.02, delay: 1.1 },
-        { left: '25%', top: '80%', size: 22, depth: 0.045, delay: 0.7 },
-        { left: '70%', top: '15%', size: 32, depth: 0.025, delay: 0.1 },
-      ].map((block, i) => (
+/* Harvard Yard rooflines drawn on a coarse block grid */
+function buildCells() {
+  const seen = new Set();
+  const cells = [];
+  const add = (c, r) => {
+    if (c < 0 || r < 0) return;
+    const k = `${c}:${r}`;
+    if (seen.has(k)) return;
+    seen.add(k);
+    cells.push({ c, r });
+  };
+  const box = (x, w, h, base = 0) => {
+    for (let c = x; c < x + w; c++) for (let r = base; r < base + h; r++) add(c, r);
+  };
+  const pediment = (x, w, baseR, rows) => {
+    let l = x, rgt = x + w - 1, r = baseR;
+    for (let i = 0; i < rows && l <= rgt; i++) {
+      for (let c = l; c <= rgt; c++) add(c, r);
+      l++; rgt--; r++;
+    }
+  };
+  const spire = (x, w, baseR) => {
+    let l = x, rgt = x + w - 1, r = baseR;
+    while (l <= rgt) {
+      for (let c = l; c <= rgt; c++) { add(c, r); add(c, r + 1); }
+      l++; rgt--; r += 2;
+    }
+    add(x + Math.floor(w / 2), r);
+    add(x + Math.floor(w / 2), r + 1);
+  };
+  const dome = (x, w, baseR) => {
+    let l = x, rgt = x + w - 1, r = baseR;
+    while (rgt - l >= 1) { for (let c = l; c <= rgt; c++) add(c, r); l++; rgt--; r++; }
+    for (let c = l; c <= rgt; c++) { add(c, r); add(c, r + 1); }
+  };
+
+  // 1 — Sever-style hall
+  box(1, 14, 11); pediment(1, 14, 11, 4);
+  box(3, 1, 4, 14); box(11, 1, 4, 14);
+  // 2 — Memorial Church with steeple
+  box(19, 13, 10); pediment(19, 13, 10, 3);
+  box(23, 5, 6, 13); box(24, 3, 4, 19); spire(24, 3, 23);
+  // 3 — Widener
+  box(36, 21, 14); pediment(41, 11, 14, 3);
+  // 4 — Lowell House with domed tower
+  box(60, 15, 10); pediment(60, 15, 10, 4);
+  box(65, 5, 8, 12); box(66, 3, 2, 20); dome(65, 5, 22);
+  // 5 — right-hand house
+  box(79, 13, 9); pediment(79, 13, 9, 4);
+  box(81, 1, 4, 12); box(89, 1, 4, 12);
+
+  return cells;
+}
+
+function BlockSkyline({ scrollY, vw, vh }) {
+  const cells = useMemo(buildCells, []);
+  const rows = useMemo(() => cells.reduce((m, c) => Math.max(m, c.r), 0) + 1, [cells]);
+  const scale = Math.max(0.4, Math.min(1, (vw - 40) / (COLS * CELL), (vh * 0.46) / (rows * CELL)));
+  const parallax = Math.min(scrollY * 0.18, 120);
+  const bandHeight = Math.round(rows * CELL * scale + 90);
+  const showTicker = vh > 620;
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: bandHeight,
+        pointerEvents: 'none', zIndex: 1, overflow: 'hidden',
+        transform: `translateY(${-parallax * 0.35}px)`,
+        transition: 'transform 0.15s linear',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute', left: '50%', bottom: 74,
+          width: COLS * CELL, height: rows * CELL,
+          transform: `translateX(-50%) scale(${scale})`,
+          transformOrigin: 'center bottom',
+        }}
+      >
+        {cells.map((cell, i) => {
+          const hot = (i * 7 + cell.c * 3) % 23 === 0;
+          const delay = cell.c * 0.022 + cell.r * 0.05;
+          const alpha = Math.max(0.07, 0.26 - cell.r * 0.011);
+          return (
+            <div
+              key={i}
+              style={{
+                position: 'absolute',
+                left: cell.c * CELL,
+                bottom: cell.r * CELL,
+                width: CELL - GAP,
+                height: CELL - GAP,
+                background: hot ? rgba(CRIMSON, 0.45) : rgba(CRIMSON, alpha),
+                outline: `1px solid ${rgba(CRIMSON, hot ? 0.4 : 0.12)}`,
+                outlineOffset: '-1px',
+                animation: hot
+                  ? 'hubcBlockIn 0.7s cubic-bezier(.2,.8,.25,1) both, hubcPulse 3.6s ease-in-out infinite'
+                  : 'hubcBlockIn 0.7s cubic-bezier(.2,.8,.25,1) both',
+                animationDelay: hot ? `${delay}s, ${delay + 0.9}s` : `${delay}s`,
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {showTicker && (
         <div
-          key={i}
           style={{
-            position: 'absolute',
-            left: block.left,
-            top: block.top,
-            width: block.size,
-            height: block.size,
-            border: `1px solid rgba(165, 28, 48, ${0.12 + (i % 3) * 0.08})`,
-            background: `linear-gradient(135deg, rgba(165, 28, 48, 0.03) 0%, transparent 100%)`,
-            transform: `translate(${mousePos.x * block.depth * 100}px, ${mousePos.y * block.depth * 100}px) rotate(${45 + mousePos.x * 10}deg)`,
-            transition: 'transform 0.3s ease-out',
-            animation: `float ${8 + i * 0.5}s ease-in-out infinite`,
-            animationDelay: `${block.delay}s`,
+            position: 'absolute', left: 0, right: 0, bottom: 34, height: 11, overflow: 'hidden',
+            maskImage: 'linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent)',
+            WebkitMaskImage: 'linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent)',
           }}
-        />
-      ))}
-    </>
-  );
-
-  // Animated Counter Component
-  const AnimatedCounter = ({ end, duration = 2000, suffix = '' }) => {
-    const [count, setCount] = useState(0);
-    const countRef = useRef(null);
-    
-    useEffect(() => {
-      if (!visibleSections['stats-section']) return;
-      
-      let startTime;
-      const animate = (timestamp) => {
-        if (!startTime) startTime = timestamp;
-        const progress = Math.min((timestamp - startTime) / duration, 1);
-        setCount(Math.floor(progress * end));
-        if (progress < 1) requestAnimationFrame(animate);
-      };
-      requestAnimationFrame(animate);
-    }, [visibleSections['stats-section'], end, duration]);
-    
-    return <span>{count}{suffix}</span>;
-  };
-
-  // Navigation
-  const Navigation = () => (
-    <nav style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      padding: '20px 60px',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      background: scrollY > 50 ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
-      backdropFilter: scrollY > 50 ? 'blur(20px)' : 'none',
-      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-      zIndex: 1000,
-      borderBottom: scrollY > 50 ? '1px solid rgba(165, 28, 48, 0.08)' : 'none',
-    }}>
-      <div 
-        style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-        onClick={() => setActivePage('home')}
-      >
-        <HUBCLogo height={50} />
-      </div>
-      
-      <div style={{ display: 'flex', gap: '48px', alignItems: 'center' }}>
-        {[
-          { label: 'About', page: 'home' },
-          { label: 'Initiatives', page: 'initiatives' },
-          { label: 'Team', page: 'team' },
-        ].map((item) => (
-          <a
-            key={item.label}
-            onClick={() => setActivePage(item.page)}
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: '14px',
-              fontWeight: 500,
-              color: activePage === item.page ? '#A51C30' : '#1a1a1a',
-              textDecoration: 'none',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              position: 'relative',
-            }}
-          >
-            {item.label}
-          </a>
-        ))}
-        <button style={{
-          padding: '12px 28px',
-          background: '#A51C30',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '8px',
-          fontFamily: "'Inter', sans-serif",
-          fontSize: '14px',
-          fontWeight: 600,
-          cursor: 'pointer',
-          transition: 'all 0.3s ease',
-        }}>
-          Contact
-        </button>
-      </div>
-    </nav>
-  );
-
-  // Interactive Harvard Skyline Component with scroll animation
-  const InteractiveHarvardSkyline = () => {
-    const [hoveredBuilding, setHoveredBuilding] = useState(null);
-    
-    // Buildings grow and become more visible as you scroll, but stay anchored at bottom
-    const buildingScale = 1 + Math.min(scrollY * 0.0002, 0.05);
-    const buildingOpacity = Math.min(0.4 + scrollY * 0.002, 1);
-    
-    return (
-      <svg 
-        style={{ 
-          position: 'absolute', 
-          bottom: 0, 
-          left: '50%', 
-          transform: `translateX(-50%) scale(${buildingScale})`,
-          transformOrigin: 'bottom center',
-          opacity: isLoaded ? buildingOpacity : 0,
-          transition: 'opacity 0.5s ease-out',
-        }} 
-        width="1400" 
-        height="260" 
-        viewBox="0 0 1400 260" 
-        fill="none"
-      >
-        <defs>
-          <linearGradient id="groundGlow" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#A51C30" stopOpacity="0.05" />
-            <stop offset="50%" stopColor="#A51C30" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#A51C30" stopOpacity="0.05" />
-          </linearGradient>
-        </defs>
-        
-        {/* Ground line */}
-        <line x1="0" y1="250" x2="1400" y2="250" stroke="url(#groundGlow)" strokeWidth="2" />
-        <ellipse cx="700" cy="255" rx="600" ry="12" fill="url(#groundGlow)" opacity="0.3" />
-        
-        {/* Left Dorm Building - Kirkland */}
-        <g 
-          style={{ 
-            cursor: 'pointer',
-            transition: 'all 0.4s ease',
-            transform: `translateY(${hoveredBuilding === 'left' ? -8 : 0}px)`,
-            filter: hoveredBuilding === 'left' ? 'drop-shadow(0 0 20px rgba(165, 28, 48, 0.4))' : 'none',
-          }}
-          onMouseEnter={() => setHoveredBuilding('left')}
-          onMouseLeave={() => setHoveredBuilding(null)}
         >
-          <rect x="50" y="160" width="160" height="100" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'left' ? 2 : 1.5} />
-          <polygon points="50,160 130,115 210,160" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'left' ? 2 : 1.5} />
-          {/* Dormer windows */}
-          <rect x="85" y="128" width="18" height="22" fill="none" stroke="#A51C30" strokeWidth="1" opacity="0.7" />
-          <rect x="155" y="128" width="18" height="22" fill="none" stroke="#A51C30" strokeWidth="1" opacity="0.7" />
-          {/* Windows */}
-          {[0,1,2,3].map(i => (
-            <g key={`left-win-${i}`}>
-              <rect x={65 + i * 35} y="175" width="18" height="28" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'left' ? 0.9 : 0.5} />
-              <rect x={65 + i * 35} y="215" width="18" height="28" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'left' ? 0.9 : 0.5} />
-            </g>
-          ))}
-          {/* Chimneys */}
-          <rect x="70" y="120" width="10" height="35" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          <rect x="180" y="120" width="10" height="35" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          {hoveredBuilding === 'left' && (
-            <text x="130" y="268" textAnchor="middle" fill="#A51C30" fontSize="11" fontFamily="Inter" fontWeight="500">Kirkland House</text>
-          )}
-        </g>
-        
-        {/* Center Left Building - Adams House style */}
-        <g 
-          style={{ 
-            cursor: 'pointer',
-            transition: 'all 0.4s ease',
-            transform: `translateY(${hoveredBuilding === 'centerLeft' ? -8 : 0}px)`,
-            filter: hoveredBuilding === 'centerLeft' ? 'drop-shadow(0 0 20px rgba(165, 28, 48, 0.4))' : 'none',
-          }}
-          onMouseEnter={() => setHoveredBuilding('centerLeft')}
-          onMouseLeave={() => setHoveredBuilding(null)}
-        >
-          <rect x="260" y="140" width="180" height="120" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'centerLeft' ? 2 : 1.5} />
-          <polygon points="260,140 350,85 440,140" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'centerLeft' ? 2 : 1.5} />
-          {/* Cupola */}
-          <rect x="330" y="55" width="40" height="30" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          <polygon points="330,55 350,35 370,55" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          {/* Windows grid */}
-          {[0,1,2,3,4].map(i => (
-            <g key={`cl-win-${i}`}>
-              <rect x={275 + i * 32} y="155" width="16" height="26" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'centerLeft' ? 0.9 : 0.5} />
-              <rect x={275 + i * 32} y="190" width="16" height="26" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'centerLeft' ? 0.9 : 0.5} />
-              <rect x={275 + i * 32} y="225" width="16" height="26" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'centerLeft' ? 0.9 : 0.5} />
-            </g>
-          ))}
-          {/* Main entrance */}
-          <rect x="335" y="230" width="28" height="30" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          <path d="M335,230 Q349,222 363,230" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          {hoveredBuilding === 'centerLeft' && (
-            <text x="350" y="268" textAnchor="middle" fill="#A51C30" fontSize="11" fontFamily="Inter" fontWeight="500">Adams House</text>
-          )}
-        </g>
-        
-        {/* LOWELL HOUSE - Center Tower (Main Feature) */}
-        <g 
-          style={{ 
-            cursor: 'pointer',
-            transition: 'all 0.4s ease',
-            transform: `translateY(${hoveredBuilding === 'lowell' ? -12 : 0}px)`,
-            filter: hoveredBuilding === 'lowell' ? 'drop-shadow(0 0 30px rgba(165, 28, 48, 0.5))' : 'drop-shadow(0 0 10px rgba(165, 28, 48, 0.15))',
-          }}
-          onMouseEnter={() => setHoveredBuilding('lowell')}
-          onMouseLeave={() => setHoveredBuilding(null)}
-        >
-          {/* Main building base */}
-          <rect x="500" y="175" width="280" height="85" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'lowell' ? 2.5 : 2} />
-          
-          {/* Tower base */}
-          <rect x="590" y="105" width="100" height="70" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'lowell' ? 2.5 : 2} />
-          
-          {/* Tower middle section */}
-          <rect x="605" y="60" width="70" height="45" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'lowell' ? 2.5 : 2} />
-          
-          {/* Bell tower / Cupola */}
-          <rect x="618" y="30" width="44" height="30" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'lowell' ? 2.5 : 2} />
-          
-          {/* Spire top */}
-          <polygon points="640,30 618,30 640,5 662,30" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'lowell' ? 2.5 : 2} />
-          
-          {/* Clock face */}
-          <circle cx="640" cy="45" r="10" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          <line x1="640" y1="45" x2="640" y2="38" stroke="#A51C30" strokeWidth="1.5" />
-          <line x1="640" y1="45" x2="645" y2="45" stroke="#A51C30" strokeWidth="1.5" />
-          
-          {/* Arched windows on tower */}
-          {[0,1,2].map(i => (
-            <path key={`arch-${i}`} d={`M${615 + i * 22},105 L${615 + i * 22},85 Q${626 + i * 22},77 ${637 + i * 22},85 L${637 + i * 22},105`} 
-              fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'lowell' ? 0.9 : 0.6} />
-          ))}
-          
-          {/* Main building windows */}
-          {[0,1,2,3,4,5,6,7].map(i => (
-            <g key={`lowell-win-${i}`}>
-              <rect x={512 + i * 32} y="188" width="18" height="28" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'lowell' ? 0.9 : 0.5} />
-              <rect x={512 + i * 32} y="225" width="18" height="25" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'lowell' ? 0.9 : 0.5} />
-            </g>
-          ))}
-          
-          {/* Grand entrance */}
-          <rect x="622" y="225" width="36" height="35" fill="none" stroke="#A51C30" strokeWidth="2" />
-          <path d="M622,225 Q640,212 658,225" fill="none" stroke="#A51C30" strokeWidth="2" />
-          
-          {/* Decorative pediment */}
-          <polygon points="590,105 640,72 690,105" fill="none" stroke="#A51C30" strokeWidth="1.5" opacity="0.7" />
-          
-          {hoveredBuilding === 'lowell' && (
-            <text x="640" y="268" textAnchor="middle" fill="#A51C30" fontSize="12" fontFamily="Inter" fontWeight="600">Lowell House</text>
-          )}
-        </g>
-        
-        {/* Center Right Building - Eliot House style */}
-        <g 
-          style={{ 
-            cursor: 'pointer',
-            transition: 'all 0.4s ease',
-            transform: `translateY(${hoveredBuilding === 'centerRight' ? -8 : 0}px)`,
-            filter: hoveredBuilding === 'centerRight' ? 'drop-shadow(0 0 20px rgba(165, 28, 48, 0.4))' : 'none',
-          }}
-          onMouseEnter={() => setHoveredBuilding('centerRight')}
-          onMouseLeave={() => setHoveredBuilding(null)}
-        >
-          <rect x="840" y="150" width="160" height="110" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'centerRight' ? 2 : 1.5} />
-          <polygon points="840,150 920,100 1000,150" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'centerRight' ? 2 : 1.5} />
-          {/* Bell tower */}
-          <rect x="900" y="65" width="40" height="35" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          <polygon points="900,65 920,45 940,65" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          {/* Windows */}
-          {[0,1,2,3].map(i => (
-            <g key={`cr-win-${i}`}>
-              <rect x={855 + i * 36} y="165" width="18" height="28" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'centerRight' ? 0.9 : 0.5} />
-              <rect x={855 + i * 36} y="205" width="18" height="28" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'centerRight' ? 0.9 : 0.5} />
-            </g>
-          ))}
-          {/* Chimneys */}
-          <rect x="865" y="110" width="10" height="40" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          <rect x="965" y="110" width="10" height="40" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          {hoveredBuilding === 'centerRight' && (
-            <text x="920" y="268" textAnchor="middle" fill="#A51C30" fontSize="11" fontFamily="Inter" fontWeight="500">Eliot House</text>
-          )}
-        </g>
-        
-        {/* Right Building - Dunster style */}
-        <g 
-          style={{ 
-            cursor: 'pointer',
-            transition: 'all 0.4s ease',
-            transform: `translateY(${hoveredBuilding === 'right' ? -8 : 0}px)`,
-            filter: hoveredBuilding === 'right' ? 'drop-shadow(0 0 20px rgba(165, 28, 48, 0.4))' : 'none',
-          }}
-          onMouseEnter={() => setHoveredBuilding('right')}
-          onMouseLeave={() => setHoveredBuilding(null)}
-        >
-          <rect x="1060" y="165" width="150" height="95" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'right' ? 2 : 1.5} />
-          <polygon points="1060,165 1135,118 1210,165" fill="none" stroke="#A51C30" strokeWidth={hoveredBuilding === 'right' ? 2 : 1.5} />
-          {/* Dormers */}
-          <rect x="1095" y="132" width="16" height="22" fill="none" stroke="#A51C30" strokeWidth="1" opacity="0.7" />
-          <rect x="1155" y="132" width="16" height="22" fill="none" stroke="#A51C30" strokeWidth="1" opacity="0.7" />
-          {/* Windows */}
-          {[0,1,2].map(i => (
-            <g key={`right-win-${i}`}>
-              <rect x={1075 + i * 42} y="180" width="20" height="28" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'right' ? 0.9 : 0.5} />
-              <rect x={1075 + i * 42} y="218" width="20" height="28" fill="none" stroke="#A51C30" strokeWidth="1" opacity={hoveredBuilding === 'right' ? 0.9 : 0.5} />
-            </g>
-          ))}
-          {/* Chimney */}
-          <rect x="1180" y="125" width="10" height="40" fill="none" stroke="#A51C30" strokeWidth="1.5" />
-          {hoveredBuilding === 'right' && (
-            <text x="1135" y="268" textAnchor="middle" fill="#A51C30" fontSize="11" fontFamily="Inter" fontWeight="500">Dunster House</text>
-          )}
-        </g>
-      </svg>
-    );
-  };
-
-  // Home Page
-  const HomePage = () => (
-    <>
-      {/* Hero Section */}
-      <section style={{
-        minHeight: '100vh',
-        position: 'relative',
-        overflow: 'hidden',
-        background: '#FAFBFC',
-        display: 'flex',
-        alignItems: 'flex-start',
-        paddingTop: '140px',
-      }}>
-        <ParallaxBlocks />
-        <InteractiveHarvardSkyline />
-        
-        <div style={{
-          position: 'relative',
-          zIndex: 10,
-          width: '100%',
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '40px 60px',
-        }}>
-          <div style={{
-            opacity: isLoaded ? 1 : 0,
-            transform: isLoaded ? 'translateY(0)' : 'translateY(40px)',
-            transition: 'all 1s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}>
-            <div style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: '14px',
-              fontWeight: 500,
-              color: '#A51C30',
-              letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              marginBottom: '24px',
-            }}>
-              Blockchain at Harvard
-            </div>
-            
-            <h1 style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: 'clamp(52px, 8vw, 100px)',
-              fontWeight: 700,
-              color: '#1a1a1a',
-              lineHeight: 0.95,
-              letterSpacing: '-0.04em',
-              marginBottom: '24px',
-            }}>
-              Building the<br />
-              <span style={{ color: '#A51C30' }}>Future</span>
-            </h1>
-            
-            <p style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: '18px',
-              fontWeight: 400,
-              color: 'rgba(26, 26, 26, 0.6)',
-              maxWidth: '480px',
-              lineHeight: 1.6,
-              marginBottom: '40px',
-            }}>
-              Where the next generation of builders learn, ship, and advance the frontier of decentralized technology.
-            </p>
-            
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <button 
-                onClick={() => setActivePage('initiatives')}
+          <div style={{ display: 'flex', gap: 8, width: 'max-content', animation: 'hubcChain 6s linear infinite' }}>
+            {Array.from({ length: 60 }).map((_, i) => (
+              <div
+                key={i}
                 style={{
-                  padding: '16px 32px',
-                  background: '#1a1a1a',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}>
-                Explore <span style={{ fontSize: '18px' }}>→</span>
-              </button>
-              <button 
-                onClick={() => setActivePage('team')}
-                style={{
-                  padding: '16px 32px',
-                  background: 'transparent',
-                  color: '#1a1a1a',
-                  border: '1.5px solid rgba(26, 26, 26, 0.15)',
-                  borderRadius: '8px',
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: '15px',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                }}>
-                Meet Team
-              </button>
-            </div>
-            
-            {/* Scroll indicator */}
-            <div style={{
-              marginTop: '80px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: '8px',
-              opacity: scrollY > 50 ? 0 : 0.5,
-              transition: 'opacity 0.3s ease',
-            }}>
-              <span style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: '12px',
-                fontWeight: 500,
-                color: '#A51C30',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-              }}>Scroll to explore</span>
-              <div style={{
-                width: '1px',
-                height: '40px',
-                background: 'linear-gradient(to bottom, #A51C30, transparent)',
-                animation: 'pulse 2s infinite',
-              }} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section 
-        id="stats-section"
-        data-animate
-        style={{
-          padding: '80px 60px',
-          background: '#fff',
-        }}
-      >
-        <div style={{ 
-          maxWidth: '1000px', 
-          margin: '0 auto',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '60px',
-          opacity: visibleSections['stats-section'] ? 1 : 0,
-          transform: visibleSections['stats-section'] ? 'translateY(0)' : 'translateY(30px)',
-          transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}>
-          {[
-            { value: 150, suffix: '+', label: 'Active Members' },
-            { value: 12, suffix: '', label: 'Projects Shipped' },
-            //{ value: 50, suffix: 'K+', label: 'In Grants Won' },
-          ].map((stat, i) => (
-            <div key={i} style={{ textAlign: 'center' }}>
-              <div style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: '64px',
-                fontWeight: 700,
-                color: '#A51C30',
-                letterSpacing: '-0.03em',
-                lineHeight: 1,
-                marginBottom: '12px',
-              }}>
-                {stat.value === 50 ? '$' : ''}<AnimatedCounter end={stat.value} suffix={stat.suffix} />
-              </div>
-              <div style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: '15px',
-                fontWeight: 500,
-                color: 'rgba(26, 26, 26, 0.5)',
-              }}>
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* About Section */}
-      <section 
-        id="about-section"
-        data-animate
-        style={{
-          padding: '80px 60px',
-          background: '#FAFBFC',
-        }}
-      >
-        <div style={{ 
-          maxWidth: '900px', 
-          margin: '0 auto',
-          textAlign: 'center',
-          opacity: visibleSections['about-section'] ? 1 : 0,
-          transform: visibleSections['about-section'] ? 'translateY(0)' : 'translateY(30px)',
-          transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s',
-        }}>
-          <h2 style={{
-            fontFamily: "'Inter', sans-serif",
-            fontSize: '48px',
-            fontWeight: 700,
-            color: '#1a1a1a',
-            letterSpacing: '-0.03em',
-            marginBottom: '32px',
-          }}>
-            Pioneering Web3<br />at Harvard
-          </h2>
-          <p style={{
-            fontFamily: "'Inter', sans-serif",
-            fontSize: '18px',
-            color: 'rgba(26, 26, 26, 0.6)',
-            lineHeight: 1.8,
-            maxWidth: '700px',
-            margin: '0 auto',
-          }}>
-            We're a community of students passionate about blockchain technology, 
-            decentralized systems, and the future of finance. Through workshops, 
-            hackathons, and research initiatives, we're pushing the boundaries of 
-            what's possible in the Web3 space.
-          </p>
-        </div>
-      </section>
-    </>
-  );
-
-  // Initiatives Page
-  const InitiativesPage = () => (
-    <section style={{
-      minHeight: '100vh',
-      position: 'relative',
-      overflow: 'hidden',
-      background: '#FAFBFC',
-      padding: '140px 60px 100px',
-    }}>
-      <ParallaxBlocks />
-      
-      <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 10 }}>
-        <div style={{ 
-          marginBottom: '80px',
-          opacity: isLoaded ? 1 : 0,
-          transform: isLoaded ? 'translateY(0)' : 'translateY(30px)',
-          transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}>
-          <h1 style={{ 
-            fontFamily: "'Inter', sans-serif", 
-            fontSize: 'clamp(48px, 7vw, 80px)', 
-            fontWeight: 700, 
-            color: '#1a1a1a', 
-            letterSpacing: '-0.04em', 
-            marginBottom: '24px' 
-          }}>
-            Our Initiatives
-          </h1>
-          <p style={{ 
-            fontFamily: "'Inter', sans-serif", 
-            fontSize: '18px', 
-            color: 'rgba(26, 26, 26, 0.6)', 
-            maxWidth: '550px', 
-            lineHeight: 1.7 
-          }}>
-            From cutting-edge research to hands-on workshops, we're pushing the boundaries of what's possible.
-          </p>
-        </div>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
-          {[
-            { icon: '🤝', title: '2026 Blockchain and AI Summit at Harvard', desc: 'More to Come.', status: 'Active' },
-            { icon: '⛓️', title: 'DeFi Research', desc: 'Exploring decentralized finance protocols, yield strategies, and protocol security.', status: 'Active' },
-            { icon: '🔐', title: 'Security Lab', desc: 'Training in smart contract security and conducting audits for campus projects.', status: 'Active' },
-            { icon: '📚', title: 'Blockchain 101', desc: 'Weekly workshops introducing blockchain fundamentals to the Harvard community.', status: 'Ongoing' },
-            { icon: '🤝', title: 'Industry Connect', desc: 'Experimenting with decentralized governance for club decision-making.', status: 'Beta' },
-            { icon: '🤝', title: 'HBC25', desc: 'The Harvard Blockchain Event of 2025.', status: 'Past' },
-          ].map((item, i) => (
-            <div 
-              key={i} 
-              style={{ 
-                padding: '40px', 
-                background: '#fff', 
-                borderRadius: '16px',
-                border: '1px solid rgba(0,0,0,0.06)',
-                cursor: 'pointer',
-                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                opacity: isLoaded ? 1 : 0,
-                transform: isLoaded ? 'translateY(0)' : 'translateY(30px)',
-                transitionDelay: `${i * 0.1}s`,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-8px)';
-                e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.08)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'flex-start',
-                marginBottom: '20px' 
-              }}>
-                <div style={{ fontSize: '40px' }}>{item.icon}</div>
-                <span style={{
-                  padding: '6px 12px',
-                  background: item.status === 'Active' ? 'rgba(34, 197, 94, 0.1)' : item.status === 'Beta' ? 'rgba(165, 28, 48, 0.1)' : 'rgba(0,0,0,0.05)',
-                  color: item.status === 'Active' ? '#16a34a' : item.status === 'Beta' ? '#A51C30' : 'rgba(26,26,26,0.5)',
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  borderRadius: '6px',
-                }}>{item.status}</span>
-              </div>
-              <h3 style={{ 
-                fontFamily: "'Inter', sans-serif", 
-                fontSize: '22px', 
-                fontWeight: 600, 
-                color: '#1a1a1a', 
-                marginBottom: '12px' 
-              }}>{item.title}</h3>
-              <p style={{ 
-                fontFamily: "'Inter', sans-serif", 
-                fontSize: '15px', 
-                color: 'rgba(26, 26, 26, 0.6)', 
-                lineHeight: 1.7 
-              }}>{item.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-
-  // Team Page
-  const TeamPage = () => (
-    <section style={{
-      minHeight: '100vh',
-      position: 'relative',
-      overflow: 'hidden',
-      background: '#FAFBFC',
-      padding: '140px 60px 100px',
-    }}>
-      <ParallaxBlocks />
-      
-      <div style={{ maxWidth: '1100px', margin: '0 auto', position: 'relative', zIndex: 10 }}>
-        <div style={{ 
-          marginBottom: '80px',
-          opacity: isLoaded ? 1 : 0,
-          transform: isLoaded ? 'translateY(0)' : 'translateY(30px)',
-          transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}>
-          <h1 style={{ 
-            fontFamily: "'Inter', sans-serif", 
-            fontSize: 'clamp(48px, 7vw, 80px)', 
-            fontWeight: 700, 
-            color: '#1a1a1a', 
-            letterSpacing: '-0.04em', 
-            marginBottom: '24px' 
-          }}>
-            Our Team
-          </h1>
-          <p style={{ 
-            fontFamily: "'Inter', sans-serif", 
-            fontSize: '18px', 
-            color: 'rgba(26, 26, 26, 0.6)', 
-            maxWidth: '550px', 
-            lineHeight: 1.7 
-          }}>
-            A passionate group of builders, researchers, and innovators.
-          </p>
-        </div>
-        
-        {/* Leadership */}
-        <div style={{ marginBottom: '80px' }}>
-          <h3 style={{ 
-            fontFamily: "'Inter', sans-serif", 
-            fontSize: '13px', 
-            fontWeight: 600, 
-            color: '#A51C30', 
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: '32px' 
-          }}>Leadership</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
-            {[
-              { 
-                name: 'Antonia Kolb', role: 'President', year: "'28",
-                photo: '/antoniahubc.jpg'
-              },
-              { 
-                name: 'David Parkes', role: 'Faculty Advisor, John A. Paulson Dean of the Harvard John A. Paulson School of Engineering and Applied Sciences',
-                photo: '/david copy.jpeg'
-              },
-              { 
-                name: 'Hudson Brown', role: 'Treasurer', year: "'28",
-                photo: '/on boat copy.jpg'
-              },
-              { 
-                name: 'Sasha Minsky', role: 'Head of Growth', year: "'28",
-                photo: '/sasha copy.jpg'
-              },
-              { 
-                name: 'Tyler Dang', role: 'Operations Director', year: "'28",
-                photo: '/tyler copy.jpeg'
-              },  
-              { 
-                name: 'Will Brunner', role: 'Marketing and Communications Director', year: "'28",
-                photo: '/will copy.jpeg'
-              },
-            ].map((member, i) => (
-              <div 
-                key={i} 
-                style={{
-                  padding: '32px',
-                  background: '#fff',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(0,0,0,0.06)',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  opacity: isLoaded ? 1 : 0,
-                  transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
-                  transitionDelay: `${i * 0.1}s`,
+                  width: 9, height: 9, flex: '0 0 auto',
+                  border: `1px solid ${rgba(CRIMSON, 0.22)}`,
+                  background: i % 5 === 0 ? rgba(CRIMSON, 0.16) : 'transparent',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.06)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                <div style={{
-                  width: '100px',
-                  height: '100px',
-                  margin: '0 auto 20px',
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  border: '3px solid rgba(165, 28, 48, 0.1)',
-                }}>
-                  <img 
-                    src={member.photo} 
-                    alt={member.name}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                    }}
-                  />
-                </div>
-                <h4 style={{ 
-                  fontFamily: "'Inter', sans-serif", 
-                  fontSize: '18px', 
-                  fontWeight: 600, 
-                  color: '#1a1a1a', 
-                  marginBottom: '4px' 
-                }}>{member.name}</h4>
-                <div style={{ 
-                  fontFamily: "'Inter', sans-serif", 
-                  fontSize: '14px', 
-                  color: '#A51C30' 
-                }}>{member.role} <span style={{ color: 'rgba(26,26,26,0.4)' }}>{member.year}</span></div>
-              </div>
+              />
             ))}
           </div>
         </div>
+      )}
 
-        {/* CTA */}
-        <div style={{
-          padding: '60px',
-          background: '#fff',
-          borderRadius: '20px',
-          border: '1px solid rgba(0,0,0,0.06)',
-          textAlign: 'center',
-        }}>
-          <h3 style={{ 
-            fontFamily: "'Inter', sans-serif", 
-            fontSize: '28px', 
-            fontWeight: 600, 
-            color: '#1a1a1a', 
-            marginBottom: '16px' 
-          }}>Interested in partnering?</h3>
-          <p style={{ 
-            fontFamily: "'Inter', sans-serif", 
-            fontSize: '16px', 
-            color: 'rgba(26,26,26,0.6)', 
-            marginBottom: '32px' 
-          }}>
-            We're always looking to collaborate with organizations pushing Web3 forward.
-          </p>
-          <button style={{
-            padding: '16px 40px',
-            background: '#A51C30',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            fontFamily: "'Inter', sans-serif",
-            fontSize: '15px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.3s ease',
-          }}>
-            Get in Touch →
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-
-  // Footer
-  const Footer = () => (
-    <footer style={{ 
-      padding: '40px 60px', 
-      background: '#fff', 
-      borderTop: '1px solid rgba(0,0,0,0.06)' 
-    }}>
-      <div style={{ 
-        maxWidth: '1200px', 
-        margin: '0 auto', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center' 
-      }}>
-        <div style={{ 
-          fontFamily: "'Inter', sans-serif", 
-          fontSize: '14px', 
-          color: 'rgba(26,26,26,0.4)' 
-        }}>
-          © 2026 Harvard Undergraduate Blockchain Club
-        </div>
-        <div style={{ display: 'flex', gap: '32px' }}>
-          {['X', 'Instagram'].map((social) => (
-            <a 
-              key={social} 
-              href="#" 
-              style={{ 
-                fontFamily: "'Inter', sans-serif", 
-                fontSize: '14px', 
-                color: 'rgba(26,26,26,0.5)', 
-                textDecoration: 'none',
-                transition: 'color 0.2s ease',
-              }}
-              onMouseEnter={(e) => e.target.style.color = '#A51C30'}
-              onMouseLeave={(e) => e.target.style.color = 'rgba(26,26,26,0.5)'}
-            >{social}</a>
-          ))}
-        </div>
-      </div>
-    </footer>
-  );
-
-  // Render
-  const renderPage = () => {
-    switch(activePage) {
-      case 'initiatives': return <InitiativesPage />;
-      case 'team': return <TeamPage />;
-      default: return <HomePage />;
-    }
-  };
-
-  return (
-    <div style={{ fontFamily: "'Inter', sans-serif", background: '#FAFBFC' }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-        
-        @keyframes float {
-          0%, 100% { transform: translateY(0) rotate(45deg); }
-          50% { transform: translateY(-20px) rotate(50deg); }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 0.5; transform: scaleY(1); }
-          50% { opacity: 1; transform: scaleY(1.2); }
-        }
-        
-        button:hover { 
-          transform: translateY(-2px) !important; 
-          box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
-        }
-        
-        ::selection {
-          background: rgba(165, 28, 48, 0.2);
-        }
-      `}</style>
-      
-      <Navigation />
-      {renderPage()}
-      <Footer />
+      <div
+        style={{
+          position: 'absolute', left: 0, right: 0, bottom: 73, height: 1,
+          background: `linear-gradient(90deg, transparent, ${rgba(CRIMSON, 0.28)}, transparent)`,
+        }}
+      />
     </div>
+  );
+}
+
+const NavLink = ({ label, active, onClick }) => (
+  <a
+    className="hubc-navlink"
+    onClick={onClick}
+    style={{
+      fontSize: 14, fontWeight: 500, cursor: 'pointer', textDecoration: 'none',
+      color: active ? CRIMSON : 'rgba(23,20,15,0.75)',
+    }}
+  >
+    {label}
+  </a>
+);
+
+const InitiativeCard = ({ n, status, title, href, children }) => {
+  const Tag = href ? 'a' : 'div';
+  const linkProps = href ? { href, target: '_blank', rel: 'noopener noreferrer' } : {};
+  return (
+  <Tag className="hubc-card hubc-reveal" {...linkProps} style={{ display: 'block', background: '#fff', padding: 40, color: 'inherit', textDecoration: 'none' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 28 }}>
+      <span style={{ fontFamily: MONO, fontSize: 11, color: 'rgba(23,20,15,0.35)' }}>{n}</span>
+      <span
+        style={{
+          fontFamily: MONO, fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase',
+          color: status === 'Active' ? CRIMSON : 'rgba(23,20,15,0.45)',
+        }}
+      >
+        {status}
+      </span>
+    </div>
+    <h3 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: 27, lineHeight: 1.2, margin: '0 0 12px' }}>{title}</h3>
+    <p style={{ fontSize: 15, lineHeight: 1.7, color: 'rgba(23,20,15,0.6)', margin: href ? '0 0 20px' : 0 }}>{children}</p>
+    {href && (
+      <span
+        className="hubc-cardlink"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: MONO, fontSize: 11,
+          letterSpacing: '0.1em', textTransform: 'uppercase', color: CRIMSON,
+          borderBottom: '1px solid rgba(165,28,48,0.35)', paddingBottom: 3,
+        }}
+      >
+        {href.replace(/^https?:\/\//, '')} →
+      </span>
+    )}
+  </Tag>
   );
 };
 
-export default HarvardBlockchainClub;
+const SOCIALS = [
+  {
+    label: 'X',
+    href: 'https://x.com/hublockchain',
+    svg: <path d="M18.9 2H22l-7.6 8.7L23 22h-6.9l-5.4-7-6.2 7H1.4l8.1-9.3L1 2h7.1l4.9 6.4L18.9 2Zm-1.2 18h1.9L7.4 3.9H5.4L17.7 20Z" />,
+    filled: true,
+  },
+  {
+    label: 'LinkedIn',
+    href: 'https://www.linkedin.com/company/harvardblockchainclub/',
+    svg: <path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9h4v12H3V9Zm7 0h3.8v1.7h.05c.53-.95 1.83-1.95 3.76-1.95C21.4 8.75 22 11 22 14v7h-4v-6.2c0-1.5-.03-3.4-2.1-3.4-2.1 0-2.4 1.6-2.4 3.3V21h-4V9Z" />,
+    filled: true,
+  },
+  {
+    label: 'Instagram',
+    href: 'https://www.instagram.com/hu.blockchain/',
+    svg: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+      </>
+    ),
+  },
+  {
+    label: 'Email',
+    href: EMAIL,
+    svg: (
+      <>
+        <rect x="2.8" y="5" width="18.4" height="14" rx="2" />
+        <path d="M3.4 6.5 12 13l8.6-6.5" />
+      </>
+    ),
+  },
+];
+
+const SocialIcon = ({ label, href, svg, filled }) => (
+  <a
+    className="hubc-social"
+    href={href}
+    aria-label={`HUBC on ${label}`}
+    title={label}
+    {...(href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+    style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: 38, height: 38, border: '1px solid rgba(23,20,15,0.14)', borderRadius: 2,
+      color: 'rgba(23,20,15,0.55)',
+    }}
+  >
+    <svg
+      width={filled ? 15 : 16}
+      height={filled ? 15 : 16}
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke={filled ? 'none' : 'currentColor'}
+      strokeWidth={filled ? 0 : 1.8}
+      aria-hidden="true"
+    >
+      {svg}
+    </svg>
+  </a>
+);
+
+const Person = ({ photo, name, role, note, position = 'center 20%' }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <img
+      className="hubc-portrait hubc-reveal"
+      src={photo}
+      alt={name}
+      loading="lazy"
+      style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', objectPosition: position }}
+    />
+    <div>
+      <div style={{ fontFamily: SERIF, fontSize: 24, lineHeight: 1.15 }}>{name}</div>
+      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: CRIMSON, marginTop: 8 }}>
+        {role}
+      </div>
+      {note && <div style={{ fontSize: 13, lineHeight: 1.5, color: 'rgba(23,20,15,0.5)', marginTop: 6 }}>{note}</div>}
+    </div>
+  </div>
+);
+
+export default function App() {
+  const [page, setPage] = useState('home');
+  const [scrollY, setScrollY] = useState(0);
+  const [size, setSize] = useState({ vw: 1440, vh: 900 });
+  const raf = useRef(null);
+
+  useEffect(() => {
+    const onScroll = () => {
+      if (raf.current) return;
+      raf.current = requestAnimationFrame(() => {
+        raf.current = null;
+        setScrollY(window.scrollY);
+      });
+    };
+    const onResize = () => setSize({ vw: window.innerWidth, vh: window.innerHeight });
+    onResize();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
+  const go = (p) => () => { setPage(p); window.scrollTo(0, 0); };
+
+  const cells = useMemo(buildCells, []);
+  const rows = useMemo(() => cells.reduce((m, c) => Math.max(m, c.r), 0) + 1, [cells]);
+  const scale = Math.max(0.4, Math.min(1, (size.vw - 40) / (COLS * CELL), (size.vh * 0.46) / (rows * CELL)));
+  const heroPadBottom = Math.round(rows * CELL * scale + 90);
+
+  return (
+    <div style={{ fontFamily: SANS, color: INK, background: PAPER, minHeight: '100vh' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        *, *::before, *::after { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { margin: 0; background: ${PAPER}; }
+        a { color: ${CRIMSON}; text-decoration: none; }
+        ::selection { background: rgba(165,28,48,0.16); }
+        @keyframes hubcBlockIn { from { opacity: 0; transform: translateY(14px) scale(0.82); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes hubcPulse { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
+        @keyframes hubcChain { from { transform: translateX(0); } to { transform: translateX(-160px); } }
+        @keyframes hubcFadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes hubcRise { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes hubcCaret { 0%,45% { opacity: 1; } 55%,100% { opacity: 0.15; } }
+        .hubc-reveal { animation: hubcRise linear both; animation-timeline: view(); animation-range: entry 0% cover 28%; }
+        .hubc-btn-dark, .hubc-btn-ghost, .hubc-btn-outline, .hubc-btn-solid { transition: background 0.3s ease, color 0.25s ease, border-color 0.3s ease, transform 0.3s cubic-bezier(.2,.8,.25,1), box-shadow 0.3s ease; }
+        .hubc-btn-dark:hover { background: ${CRIMSON} !important; transform: translateY(-2px); box-shadow: 0 12px 24px rgba(165,28,48,0.22); }
+        .hubc-btn-ghost:hover { border-color: ${INK} !important; transform: translateY(-2px); }
+        .hubc-btn-outline:hover { background: ${INK} !important; color: ${PAPER} !important; }
+        .hubc-btn-solid:hover { background: ${INK} !important; transform: translateY(-2px); box-shadow: 0 14px 28px rgba(23,20,15,0.18); }
+        .hubc-navlink { transition: color 0.25s ease, letter-spacing 0.25s ease; }
+        .hubc-navlink:hover { color: ${CRIMSON} !important; letter-spacing: 0.04em; }
+        .hubc-card { transition: background 0.3s ease, transform 0.35s cubic-bezier(.2,.8,.25,1), box-shadow 0.35s ease; }
+        .hubc-card:hover { background: #FFFCFC; transform: translateY(-3px); box-shadow: 0 18px 40px rgba(23,20,15,0.09); }
+        .hubc-card .hubc-cardlink { transition: gap 0.25s ease, border-color 0.25s ease; }
+        .hubc-card:hover .hubc-cardlink { gap: 14px; border-color: ${CRIMSON}; }
+        .hubc-chip { transition: border-color 0.25s ease, color 0.25s ease, transform 0.25s ease; }
+        .hubc-chip:hover { border-color: ${CRIMSON}; color: ${CRIMSON}; transform: translateY(-2px); }
+        .hubc-portrait { filter: grayscale(1); transition: filter 0.5s ease, transform 0.6s cubic-bezier(.2,.8,.25,1); }
+        .hubc-portrait:hover { filter: grayscale(0); transform: scale(1.02); }
+        .hubc-social { transition: color 0.25s ease, border-color 0.25s ease, transform 0.25s cubic-bezier(.2,.8,.25,1); }
+        .hubc-social:hover { color: ${CRIMSON} !important; border-color: ${CRIMSON}; transform: translateY(-2px); }
+        .hubc-logo { transition: height 0.35s cubic-bezier(.2,.8,.25,1), opacity 0.25s ease; }
+        .hubc-logo:hover { opacity: 0.7; }
+        @media (prefers-reduced-motion: reduce) {
+          * { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; }
+        }
+        @media (max-width: 720px) {
+          .hubc-nav { padding: 14px 20px !important; gap: 16px; }
+          .hubc-nav-links { gap: 20px !important; }
+          .hubc-pad { padding-left: 20px !important; padding-right: 20px !important; }
+          .hubc-two-col { grid-template-columns: 1fr !important; gap: 32px !important; }
+        }
+      `}</style>
+
+      <nav
+        className="hubc-nav"
+        style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: `${scrollY > 40 ? 12 : 18}px 56px`, background: 'rgba(250,250,248,0.82)',
+          backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
+          borderBottom: '1px solid rgba(23,20,15,0.07)',
+          boxShadow: scrollY > 40 ? '0 10px 30px rgba(23,20,15,0.05)' : '0 0 0 rgba(0,0,0,0)',
+          transition: 'padding 0.35s cubic-bezier(.2,.8,.25,1), box-shadow 0.35s ease',
+        }}
+      >
+        <img
+          className="hubc-logo"
+          src="/hubc-logo.png"
+          alt="Harvard Undergraduate Blockchain Club"
+          onClick={go('home')}
+          style={{ height: scrollY > 40 ? 28 : 34, width: 'auto', cursor: 'pointer' }}
+        />
+        <div className="hubc-nav-links" style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
+          <NavLink label="About" active={page === 'home'} onClick={go('home')} />
+          <NavLink label="Initiatives" active={page === 'initiatives'} onClick={go('initiatives')} />
+          <NavLink label="Team" active={page === 'team'} onClick={go('team')} />
+          <a
+            className="hubc-btn-outline"
+            href={EMAIL}
+            style={{
+              fontFamily: MONO, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase',
+              padding: '11px 20px', border: `1px solid ${INK}`, color: INK, borderRadius: 2,
+              transition: 'background 0.25s ease, color 0.25s ease',
+            }}
+          >
+            Contact
+          </a>
+        </div>
+      </nav>
+
+      {page === 'home' && (
+        <section>
+          <div
+            className="hubc-pad"
+            style={{
+              position: 'relative', minHeight: '100vh', overflow: 'hidden',
+              display: 'flex', alignItems: 'center',
+              padding: `132px 56px ${heroPadBottom}px`,
+            }}
+          >
+            <BlockSkyline scrollY={scrollY} vw={size.vw} vh={size.vh} />
+            <div style={{ position: 'relative', zIndex: 2, maxWidth: 1240, margin: '0 auto', width: '100%' }}>
+              <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '0.18em', textTransform: 'uppercase', color: CRIMSON, marginBottom: 28, animation: 'hubcFadeUp 0.8s ease both', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                Harvard Undergraduate Blockchain Club
+                <span style={{ width: 8, height: 8, background: CRIMSON, animation: 'hubcCaret 1.6s steps(1, end) infinite' }} />
+              </div>
+              <h1 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: 'clamp(46px, 8.5vw, 118px)', lineHeight: 0.94, letterSpacing: '-0.02em', margin: '0 0 28px', maxWidth: '14ch', animation: 'hubcFadeUp 0.9s ease 0.08s both' }}>
+                Building the future, <em style={{ fontStyle: 'italic', color: CRIMSON }}>block by block.</em>
+              </h1>
+              <p style={{ fontSize: 18, lineHeight: 1.65, color: 'rgba(23,20,15,0.62)', maxWidth: '46ch', margin: '0 0 40px', animation: 'hubcFadeUp 0.9s ease 0.16s both' }}>
+                A student community in Cambridge researching, building, and shipping on decentralized infrastructure — from protocol design to real deployments.
+              </p>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', animation: 'hubcFadeUp 0.9s ease 0.24s both' }}>
+                <a className="hubc-btn-dark" onClick={go('initiatives')} style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '15px 26px', background: INK, color: PAPER, borderRadius: 2, cursor: 'pointer', transition: 'background 0.25s ease' }}>
+                  Our work
+                </a>
+                <a className="hubc-btn-ghost" onClick={go('team')} style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '15px 26px', border: '1px solid rgba(23,20,15,0.22)', color: INK, borderRadius: 2, cursor: 'pointer', transition: 'border-color 0.25s ease' }}>
+                  Meet the team
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="hubc-pad" style={{ padding: '120px 56px', background: '#fff', borderTop: '1px solid rgba(23,20,15,0.08)' }}>
+            <div className="hubc-two-col" style={{ maxWidth: 1240, margin: '0 auto', display: 'grid', gridTemplateColumns: 'minmax(0, 0.9fr) minmax(0, 1.1fr)', gap: 80, alignItems: 'start' }}>
+              <h2 className="hubc-reveal" style={{ fontFamily: SERIF, fontWeight: 400, fontSize: 'clamp(34px, 4vw, 56px)', lineHeight: 1.06, letterSpacing: '-0.015em', margin: 0 }}>
+                Serious about the technology, not the noise.
+              </h2>
+              <div className="hubc-reveal" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+                <p style={{ fontSize: 17, lineHeight: 1.75, color: 'rgba(23,20,15,0.68)', margin: 0 }}>
+                  We are undergraduates studying cryptography, distributed systems, mechanism design, and the institutions being rebuilt around them. Weekly sessions run from first principles to production code.
+                </p>
+                <p style={{ fontSize: 17, lineHeight: 1.75, color: 'rgba(23,20,15,0.68)', margin: 0 }}>
+                  Members ship research, audit contracts, and work alongside founders, protocol teams, and faculty across the university. No prior experience required — only the willingness to build.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+                  {['Research', 'Engineering', 'Policy', 'Industry'].map((t) => (
+                    <span key={t} className="hubc-chip" style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 14px', border: '1px solid rgba(23,20,15,0.16)', borderRadius: 2, color: 'rgba(23,20,15,0.6)' }}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {page === 'initiatives' && (
+        <section className="hubc-pad" style={{ padding: '160px 56px 120px' }}>
+          <div style={{ maxWidth: 1240, margin: '0 auto' }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '0.18em', textTransform: 'uppercase', color: CRIMSON, marginBottom: 22 }}>Initiatives</div>
+            <h1 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: 'clamp(40px, 6vw, 84px)', lineHeight: 1, letterSpacing: '-0.02em', margin: '0 0 24px' }}>What we're working on</h1>
+            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'rgba(23,20,15,0.6)', maxWidth: '52ch', margin: '0 0 72px' }}>
+              Research groups, teaching programs, and the events that bring the ecosystem to campus.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 1, background: 'rgba(23,20,15,0.1)', border: '1px solid rgba(23,20,15,0.1)' }}>
+              <InitiativeCard n="01" status="Active" title="Blockchain & AI Summit 2026" href="https://blockchainaisummit.org">
+                Our flagship conference bringing researchers, founders, and policymakers to Harvard. Programming announced this fall.
+              </InitiativeCard>
+              <InitiativeCard n="02" status="Active" title="DeFi Research">
+                A reading and writing group on market structure, protocol design, and the economics of decentralized finance.
+              </InitiativeCard>
+              <InitiativeCard n="03" status="Active" title="Security Lab">
+                Smart contract security training, with members auditing student and early-stage protocol codebases.
+              </InitiativeCard>
+              <InitiativeCard n="04" status="Ongoing" title="Blockchain 101">
+                A weekly workshop series introducing the fundamentals to anyone at Harvard, no background assumed.
+              </InitiativeCard>
+              <InitiativeCard n="05" status="Ongoing" title="Industry Connect">
+                Speaker sessions, treks, and recruiting pipelines with protocol teams, funds, and research labs.
+              </InitiativeCard>
+              <InitiativeCard n="06" status="Past" title="HBC25">
+                Our 2025 campus summit — a day of talks and workshops with builders from across the industry.
+              </InitiativeCard>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {page === 'team' && (
+        <section className="hubc-pad" style={{ padding: '160px 56px 120px' }}>
+          <div style={{ maxWidth: 1240, margin: '0 auto' }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '0.18em', textTransform: 'uppercase', color: CRIMSON, marginBottom: 22 }}>Team</div>
+            <h1 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: 'clamp(40px, 6vw, 84px)', lineHeight: 1, letterSpacing: '-0.02em', margin: '0 0 24px' }}>Who runs the club</h1>
+            <p style={{ fontSize: 17, lineHeight: 1.7, color: 'rgba(23,20,15,0.6)', maxWidth: '52ch', margin: '0 0 72px' }}>
+              Builders, researchers, and organizers from across the College — with faculty support from SEAS.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '40px 32px' }}>
+              <Person photo="/antonia.jpg" name="Antonia Kolb" role="President · '28" note="Conference Co-Chair" position="center 22%" />
+              <Person photo="/jeff.png" name="Jeff Dai" role="Vice President · '29" position="center 25%" />
+              <Person photo="/matthew.jpeg" name="Matthew Chin" role="Head of Trading · '29" position="center 30%" />
+              <Person photo="/anton.jpeg" name="Anton Wagner" role="Head of Markets · '29" position="center 25%" />
+              <Person photo="/sasha.jpg" name="Sasha Minsky" role="Head of Growth · '28" />
+              <Person photo="/tyler.jpeg" name="Tyler Dang" role="Operations Director · '28" position="center 25%" />
+              <Person photo="/will.jpeg" name="Will Brunner" role="Marketing & Communications · '28" note="Conference Co-Chair" />
+              <Person photo="/david.jpeg" name="David Parkes" role="Faculty Advisor" note="John A. Paulson Dean, Harvard SEAS" position="center 25%" />
+            </div>
+
+            <div style={{ marginTop: 110, borderTop: '1px solid rgba(23,20,15,0.12)', paddingTop: 56, display: 'flex', flexWrap: 'wrap', gap: 32, justifyContent: 'space-between', alignItems: 'end' }}>
+              <div>
+                <h3 style={{ fontFamily: SERIF, fontWeight: 400, fontSize: 'clamp(28px, 3.4vw, 46px)', lineHeight: 1.1, margin: '0 0 12px', maxWidth: '20ch' }}>
+                  Interested in partnering with us?
+                </h3>
+                <p style={{ fontSize: 16, color: 'rgba(23,20,15,0.6)', margin: 0, maxWidth: '46ch' }}>
+                  We work with protocols, funds, and research groups on sponsorship, speakers, and student projects.
+                </p>
+              </div>
+              <a className="hubc-btn-solid" href={EMAIL} style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '16px 30px', background: CRIMSON, color: '#fff', borderRadius: 2, whiteSpace: 'nowrap', transition: 'background 0.25s ease' }}>
+                Get in touch
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <footer className="hubc-foot hubc-pad" style={{ borderTop: '1px solid rgba(23,20,15,0.08)', padding: '32px 56px', background: '#fff' }}>
+        <div style={{ maxWidth: 1240, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '0.06em', color: 'rgba(23,20,15,0.42)' }}>
+            © {new Date().getFullYear()} Harvard Undergraduate Blockchain Club · Cambridge, MA
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {SOCIALS.map((s) => <SocialIcon key={s.label} {...s} />)}
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
